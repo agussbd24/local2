@@ -54,6 +54,9 @@ export default function CheckoutModal({ open, onClose, onSuccess }) {
         total,
       })
       setCreatedOrder(order)
+      try {
+        localStorage.setItem('restobar-tracking-id', order.id)
+      } catch {}
       clearCart()
       onSuccess?.()
     } catch (submitError) {

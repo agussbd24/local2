@@ -5,6 +5,7 @@ import CheckoutModal from '../components/CheckoutModal.jsx'
 import FloatingCartButton from '../components/FloatingCartButton.jsx'
 import Hero from '../components/Hero.jsx'
 import Navbar from '../components/Navbar.jsx'
+import OrderTracker from '../components/OrderTracker.jsx'
 import ProductGrid from '../components/ProductGrid.jsx'
 import SearchBar from '../components/SearchBar.jsx'
 import { products } from '../services/menuData.js'
@@ -70,6 +71,7 @@ export default function MenuPage() {
         onSuccess={() => setCartOpen(false)}
       />
       <FloatingCartButton onClick={() => setCartOpen(true)} />
+      <OrderTracker />
     </main>
   )
 }
