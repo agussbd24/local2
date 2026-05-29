@@ -132,10 +132,10 @@ export default function OrderTracker() {
 
             <button
               type="button"
-              onClick={clearTracking}
+              onClick={() => setExpanded(false)}
               className="mt-2 w-full rounded-xl border border-white/[0.08] bg-white/[0.03] py-2.5 text-xs font-semibold text-neutral-400 transition-colors hover:bg-white/[0.08] hover:text-white"
             >
-              Ocultar
+              Minimizar
             </button>
           </div>
         ) : (
