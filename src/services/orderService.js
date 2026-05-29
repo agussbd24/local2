@@ -16,6 +16,7 @@ export function mapOrder(row) {
     notes: row.notes ?? '',
     status: row.status,
     createdAt: row.created_at,
+    deliveredAt: row.delivered_at ?? null,
   }
 }
 
@@ -62,9 +63,14 @@ export async function fetchOrders() {
 export async function updateOrderStatus(orderId, status) {
   ensureSupabase()
 
+  const update = { status }
+  if (status === 'delivered') {
+    update.delivered_at = new Date().toISOString()
+  }
+
   const { data, error } = await supabase
     .from('orders')
-    .update({ status })
+    .update(update)
     .eq('id', orderId)
     .select()
     .single()
