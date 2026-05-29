@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js'
 import { mapOrder } from '../services/orderService.js'
 
 const TRACKING_KEY = 'restobar-tracking-id'
+const CACHE_KEY = 'restobar-tracking-cache'
 
 const statusLabels = {
   new: 'Recibido',
@@ -20,7 +21,30 @@ const statusColors = {
 
 const deliveredHideDelay = 5000
 
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveCache(order) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(order))
+  } catch {}
+}
+
+function clearCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY)
+    localStorage.removeItem(TRACKING_KEY)
+  } catch {}
+}
+
 export function useOrderTracking() {
+  const cached = loadCache()
   const [orderId, setOrderId] = useState(() => {
     try {
       return localStorage.getItem(TRACKING_KEY)
@@ -28,44 +52,38 @@ export function useOrderTracking() {
       return null
     }
   })
-  const [order, setOrder] = useState(null)
+  const [order, setOrder] = useState(cached)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [hidden, setHidden] = useState(false)
+  const realtimeConnected = useRef(false)
 
   const clearTracking = useCallback(() => {
-    try {
-      localStorage.removeItem(TRACKING_KEY)
-    } catch {}
+    clearCache()
     setOrderId(null)
     setOrder(null)
     setHidden(false)
   }, [])
 
   useEffect(() => {
-    if (!orderId || !isSupabaseConfigured) {
-      return
-    }
+    if (!orderId || !isSupabaseConfigured) return
 
     let mounted = true
 
-    async function fetchOrder() {
-      try {
-        setLoading(true)
-        const { data, error: fetchError } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .single()
-
+    supabase
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .single()
+      .then(({ data, error: fetchError }) => {
         if (!mounted) return
-
-        if (fetchError) {
+        if (fetchError || !data) {
           setError('No se encontró el pedido.')
           return
         }
-
-        setOrder(mapOrder(data))
+        const mapped = mapOrder(data)
+        setOrder(mapped)
+        saveCache(mapped)
 
         if (data.status === 'delivered') {
           setTimeout(() => {
@@ -75,24 +93,16 @@ export function useOrderTracking() {
             }
           }, deliveredHideDelay)
         }
-      } catch {
+      })
+      .catch(() => {
         if (mounted) setError('Error al buscar el pedido.')
-      } finally {
-        if (mounted) setLoading(false)
-      }
-    }
+      })
 
-    fetchOrder()
-
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [orderId, clearTracking])
 
   useEffect(() => {
-    if (!orderId || !isSupabaseConfigured || hidden) {
-      return undefined
-    }
+    if (!orderId || !isSupabaseConfigured || hidden) return undefined
 
     const channel = supabase
       .channel(`tracking-${orderId}`)
@@ -100,8 +110,10 @@ export function useOrderTracking() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
         (payload) => {
+          realtimeConnected.current = true
           const updatedOrder = mapOrder(payload.new)
           setOrder(updatedOrder)
+          saveCache(updatedOrder)
 
           if (updatedOrder.status === 'delivered') {
             setTimeout(() => {
