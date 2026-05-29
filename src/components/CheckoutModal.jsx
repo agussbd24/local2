@@ -57,6 +57,7 @@ export default function CheckoutModal({ open, onClose, onSuccess }) {
       try {
         localStorage.setItem('restobar-tracking-id', order.id)
         localStorage.setItem('restobar-tracking-cache', JSON.stringify(order))
+        window.dispatchEvent(new CustomEvent('restobar-order-created', { detail: order }))
       } catch {}
       clearCart()
       onSuccess?.()

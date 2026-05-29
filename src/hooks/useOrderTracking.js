@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient.js'
 import { mapOrder } from '../services/orderService.js'
 
@@ -23,6 +23,14 @@ function loadCache() {
   }
 }
 
+function loadOrderId() {
+  try {
+    return localStorage.getItem(TRACKING_KEY)
+  } catch {
+    return null
+  }
+}
+
 function clearCache() {
   try {
     localStorage.removeItem(CACHE_KEY)
@@ -37,15 +45,8 @@ function saveCache(order) {
 }
 
 export function useOrderTracking() {
-  const cached = loadCache()
-  const [orderId, setOrderId] = useState(() => {
-    try {
-      return localStorage.getItem(TRACKING_KEY)
-    } catch {
-      return null
-    }
-  })
-  const [order, setOrder] = useState(cached)
+  const [orderId, setOrderId] = useState(loadOrderId)
+  const [order, setOrder] = useState(loadCache)
   const [error, setError] = useState(null)
   const [hidden, setHidden] = useState(false)
 
@@ -54,6 +55,19 @@ export function useOrderTracking() {
     setOrderId(null)
     setOrder(null)
     setHidden(false)
+  }, [])
+
+  useEffect(() => {
+    function onOrderCreated(e) {
+      const newOrder = e.detail
+      setOrderId(newOrder.id)
+      setOrder(newOrder)
+      setHidden(false)
+      setError(null)
+    }
+
+    window.addEventListener('restobar-order-created', onOrderCreated)
+    return () => window.removeEventListener('restobar-order-created', onOrderCreated)
   }, [])
 
   useEffect(() => {
@@ -68,10 +82,7 @@ export function useOrderTracking() {
       .single()
       .then(({ data, error: fetchError }) => {
         if (!mounted) return
-        if (fetchError || !data) {
-          setError('No se encontró el pedido.')
-          return
-        }
+        if (fetchError || !data) return
         const mapped = mapOrder(data)
         setOrder(mapped)
         saveCache(mapped)
@@ -85,9 +96,7 @@ export function useOrderTracking() {
           }, deliveredHideDelay)
         }
       })
-      .catch(() => {
-        if (mounted) setError('Error al buscar el pedido.')
-      })
+      .catch(() => {})
 
     return () => { mounted = false }
   }, [orderId, clearTracking])
