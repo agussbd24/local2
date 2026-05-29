@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { useOrderTracking } from '../hooks/useOrderTracking.js'
 import { formatCurrency } from '../services/menuData.js'
@@ -31,6 +31,14 @@ function getStepIndex(status) {
 export default function OrderTracker() {
   const { orderId, order, error, hidden, statusLabel, clearTracking } = useOrderTracking()
   const [expanded, setExpanded] = useState(false)
+  const lastOrderId = useRef(null)
+
+  useEffect(() => {
+    if (order && order.id !== lastOrderId.current) {
+      lastOrderId.current = order.id
+      setExpanded(false)
+    }
+  }, [order])
 
   if (hidden || !orderId || (!order && !error)) return null
 
