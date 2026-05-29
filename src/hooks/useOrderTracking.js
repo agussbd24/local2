@@ -8,15 +8,8 @@ const CACHE_KEY = 'restobar-tracking-cache'
 const statusLabels = {
   new: 'Recibido',
   preparing: 'Preparando',
-  ready: 'Listo para entregar',
+  ready: 'Listo',
   delivered: 'Entregado',
-}
-
-const statusColors = {
-  new: 'amber',
-  preparing: 'orange',
-  ready: 'emerald',
-  delivered: 'emerald',
 }
 
 const deliveredHideDelay = 5000
@@ -30,16 +23,16 @@ function loadCache() {
   }
 }
 
-function saveCache(order) {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(order))
-  } catch {}
-}
-
 function clearCache() {
   try {
     localStorage.removeItem(CACHE_KEY)
     localStorage.removeItem(TRACKING_KEY)
+  } catch {}
+}
+
+function saveCache(order) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(order))
   } catch {}
 }
 
@@ -53,10 +46,8 @@ export function useOrderTracking() {
     }
   })
   const [order, setOrder] = useState(cached)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [hidden, setHidden] = useState(false)
-  const realtimeConnected = useRef(false)
 
   const clearTracking = useCallback(() => {
     clearCache()
@@ -110,7 +101,6 @@ export function useOrderTracking() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
         (payload) => {
-          realtimeConnected.current = true
           const updatedOrder = mapOrder(payload.new)
           setOrder(updatedOrder)
           saveCache(updatedOrder)
@@ -133,11 +123,9 @@ export function useOrderTracking() {
   return {
     orderId,
     order,
-    loading,
     error,
     hidden,
     statusLabel: order ? statusLabels[order.status] : null,
-    statusColor: order ? statusColors[order.status] : null,
     clearTracking,
   }
 }
